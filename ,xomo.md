@@ -1,5 +1,5 @@
 <!-- Copyright (c) 2026 Tim Menzies, MIT License https://opensource.org/licenses/MIT -->
-<a href="https://timm.fyi"><img align="right" alt="Author" src="https://img.shields.io/badge/Author-timm-dc143c?logo=readme&logoColor=white"></a><img align="right" alt="Language" src="https://img.shields.io/badge/Language-Python%203.12+-000080?logo=python&logoColor=white"><img align="right" alt="Deps" src="https://img.shields.io/badge/Deps-0-32cd32?logo=checkmarx&logoColor=white"><a href="https://choosealicense.com/licenses/mit/"><img align="right" alt="License" src="https://img.shields.io/badge/License-MIT-32cd32?logo=open-source-initiative&logoColor=white"></a><img align="right" alt="Purpose" src="https://img.shields.io/badge/Purpose-SE·Estimation-7b68ee?logo=githubcopilot&logoColor=white"><br>
+<a href="https://timm.fyi"><img align="right" alt="Author" src="https://img.shields.io/badge/Author-timm-dc143c?logo=readme&logoColor=white"></a><img align="right" alt="Language" src="https://img.shields.io/badge/Language-Python%203.12+-000080?logo=python&logoColor=white"><img align="right" alt="Deps" src="https://img.shields.io/badge/Deps-nuff%20(--learn)-32cd32?logo=checkmarx&logoColor=white"><a href="https://choosealicense.com/licenses/mit/"><img align="right" alt="License" src="https://img.shields.io/badge/License-MIT-32cd32?logo=open-source-initiative&logoColor=white"></a><img align="right" alt="Purpose" src="https://img.shields.io/badge/Purpose-SE·Estimation-7b68ee?logo=githubcopilot&logoColor=white"><br>
 
 ### [http://tiny.cc/xomo](http://tiny.cc/xomo)
 xomo: one short file that runs COCOMO-II (effort), COQUALMO (defects)
@@ -7,16 +7,18 @@ and Boehm's risk tables (schedule/cost risk) as a Monte-Carlo over
 four classic NASA/JPL case studies (flight, ground, osp, osp2). A
 project is a *box* of rating ranges; sample inside it many times and
 read effort, defects and risk as **distributions**, not single
-guesses. Pure stdlib, zero dependencies.
+guesses. The model is pure stdlib; `--learn` grows a min-variance
+decision tree over the draws using [nuff](http://tiny.cc/nuff).
 
 ```bash
 # install and test
 git clone http://tiny.cc/xomo && cd xomo
-python3 -B xomo.py            # medians (p25 p50 p75) per study
-python3 -B xomo.py --checks   # self-tests
+python3 -B xomo.py             # medians (p25 p50 p75) per study
+python3 -B xomo.py --learn     # decision tree: what drives good outcomes
+python3 -B xomo.py --checks    # self-tests
 ```
 
-**Sections:** [NAME](#name) | [SYNOPSIS](#synopsis) | [OPTIONS](#options) | [DATA](#data) | [TESTS](#tests) | [OUTPUT](#output) | [CALIBRATION](#calibration) | [SEE ALSO](#see-also) | [LICENSE](#license) | [AUTHOR](#author)
+**Sections:** [NAME](#name) | [SYNOPSIS](#synopsis) | [OPTIONS](#options) | [DATA](#data) | [TESTS](#tests) | [OUTPUT](#output) | [LEARN](#learn) | [CALIBRATION](#calibration) | [SEE ALSO](#see-also) | [LICENSE](#license) | [AUTHOR](#author)
 
 **Files:** [xomo.py](#file-xomo-py) | [Makefile](#file-makefile) | [pyproject.toml](#file-pyproject-toml)
 
@@ -26,14 +28,17 @@ python3 -B xomo.py --checks   # self-tests
 
 ## SYNOPSIS
 
-    python3 -B xomo.py [--seed=N] [--n=N] [--checks] [-h]
+    python3 -B xomo.py [-s N] [-n N] [-l N] [-p STUDY] [--learn] [--checks] [-h]
 
 ## OPTIONS
 
-    -s --seed   random seed         seed=1
-    -n --n      samples per study    n=1000
-       --checks run model self-tests
-    -h --help   show the docstring
+    -s --seed     random seed                   seed=1
+    -n --n        samples/study, or --learn rows  n=1000
+    -l --leaf     min rows per tree leaf         leaf=3
+    -p --project  study to --learn               project=osp
+       --learn    grow a decision tree (needs nuff)
+       --checks   run model self-tests
+    -h --help     show the docstring
 
 ## DATA
 
@@ -64,6 +69,7 @@ Each draw: pick an integer rating in every driver's box, then
     test_osp_riskier_than_osp2    maturing osp->osp2 cuts risk
     test_flight_bigger_than_ground tighter flight s/w costs more
     test_seed_repeats             same seed -> same draw
+    test_learn_tree               nuff tree finds at least one split
 
 ## OUTPUT
 
@@ -78,6 +84,26 @@ Each draw: pick an integer rating in every driver's box, then
 Note osp -> osp2: process maturity (prec, pmat up) drops median effort
 ~7x, defects ~27x, and risk from 16 to 3 -- the "orders of magnitude"
 effect, shown reproducibly.
+
+## LEARN
+
+`--learn` turns N random draws of one project into a table (driver
+ratings -> effort/defects/risk) and grows [nuff](http://tiny.cc/nuff)'s
+min-variance decision tree over it. The root split = the single factor
+that most separates good from bad outcomes; follow branches to the `+`
+leaf for the rating combo that minimises the blended goals.
+
+    python3 -B xomo.py --learn -p osp2 -n 200 -l 20
+
+       d2h    n  Effort-  Defects-  Risk-  tree
+      0.51  200   324.21    228.95   3.48              <- baseline (all draws)
+      0.45  148   317.55    224.21   3.12  Sced > 2
+      0.37   79   260.86    194.78   3.11  |  Kloc <= 102
+    + 0.31   36   231.56    170.25      3  |  |  Ltex > 3
+      ...
+
+Needs nuff: `pip install nuff`, or clone the sibling gist so
+`$DOOT/nuff` is importable. `-n` sets rows, `-l` the min leaf size.
 
 ## CALIBRATION
 

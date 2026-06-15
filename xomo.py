@@ -238,7 +238,7 @@ def quart(xs):
 def med(xs): return statistics.median(xs)
 
 def report(the):
-  print(f"# {the.n} samples/study, seeasd={the.seed}")
+  print(f"# {the.n} samples/study, seed={the.seed}")
   lmh = lambda w: "%*s %*s %*s" % (w, "p25", w, "p50", w, "p75")
   print(f"{'':>7}  {'effort':>23}  {'defects':>20}  {'risk':>17}")
   print(f"{'study':>7}  {lmh(7)}  {lmh(6)}  {lmh(5)}")
