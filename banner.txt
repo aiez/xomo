@@ -1,0 +1,6 @@
+ __  _____  _ __ ___   ___
+ \ \/ / _ \| '_ ` _ \ / _ \
+  >  < (_) | | | | | | (_) |
+ /_/\_\___/|_| |_| |_|\___/
+COCOMO-II + COQUALMO. http://tiny.cc/xomo
+"effort, defects, risk -- as ranges, not single numbers."

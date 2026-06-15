@@ -1,0 +1,13 @@
+# xomo's terse style on purpose: 2-space indent, one-line guards,
+# semicolons, inline lambdas (see konfig/style_code.md ZIP + BAIL).
+[tool.ruff]
+line-length = 80
+
+[tool.ruff.lint]
+ignore = [
+  "E701",   # one-line if/for/def colon bodies
+  "E702",   # `a; b` multiple statements
+  "E731",   # `f = lambda ...` assignments
+  "E741",   # short names like l/o/i
+  "E401",   # grouped `import a, b, c`
+]
