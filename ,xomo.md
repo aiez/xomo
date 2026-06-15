@@ -67,15 +67,16 @@ Each draw: pick an integer rating in every driver's box, then
 
 ## OUTPUT
 
-    # 1000 samples/study, seed=1. each cell = p25 p50 p75
-      study                   effort               defects               risk
-     flight      867    1989    3811    1551   3605   7186      4     5     7
-     ground      511    1156    2174    1555   3493   7203      2     3     5
-        osp     1622    2250    3117    3721   5672   8136     12    16    20
-       osp2      224     309     407     132    202    298      3     3     4
+    # 1000 samples/study, seed=1
+                              effort               defects               risk
+      study      p25     p50     p75     p25    p50    p75    p25   p50   p75
+     flight      921    1971    3672    1606   3508   6939      4     6     7
+     ground      558    1144    2123    1508   3471   6846      2     3     5
+        osp     1743    2240    3014    3589   5511   8161     12    16    20
+       osp2      237     307     386     131    205    298      3     3     4
 
 Note osp -> osp2: process maturity (prec, pmat up) drops median effort
-~7x, defects ~28x, and risk from 16 to 3 -- the "orders of magnitude"
+~7x, defects ~27x, and risk from 16 to 3 -- the "orders of magnitude"
 effect, shown reproducibly.
 
 ## CALIBRATION

@@ -13,15 +13,27 @@ defect signs, calibration ranges, risk tables, case studies).
 MECHANISM = generic engine that reads policy, hard-codes no numbers.
 
 Options:
- -s --seed  random seed   seed=1
- -n --n     samples/study  n=1000
+ -s --seed     random seed      seed=1
+ -n --n        samples/study or --learn rows  n=1000
+ -l --leaf     min rows per tree leaf         leaf=3
+ -p --project  study to --learn             project=osp
 
-eg: python3 xomo.py               # medians for flight ground osp osp2
-    python3 xomo.py --checks      # self-tests
+eg: python3 xomo.py                       # medians: flight ground osp osp2
+    python3 xomo.py --learn -p osp2 -n 128 # nuff tree over 128 draws
+    python3 xomo.py --checks               # self-tests
+
+needs nuff (the shared learner lib): pip install nuff, or clone the
+sibling gist (http://tiny.cc/nuff) so $DOOT/nuff is importable.
 """
-import re, sys, random, statistics
+import os, re, sys, random, statistics
 from random import uniform
 from types import SimpleNamespace as o
+try:                          # nuff = shared learner lib (pip install nuff)
+  from nuff import Data, tree, treeShow
+except ImportError:           # else the sibling gist under $DOOT (gists root)
+  sys.path.append(os.path.join(os.environ.get("DOOT") or
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "nuff"))
+  from nuff import Data, tree, treeShow
 
 # ===== POLICY: business knowledge -- tweak freely ==============
 
@@ -45,7 +57,7 @@ DRIVERS = """
 # 1000 runs marginalize over the space of plausible calibrations --
 # conclusions that survive are stable without local tuning data.
 EFFORT = o(a  =(2.25, 3.25),    # linear tuning      (paper Fig 2)
-           b  =(0.9,  1.1),     # exponent base tuning
+           bhi=1.1, blo=0.9,    # exponent base: b falls as a rises
            emp=( 0.073,  0.21), # +slope effort mult, per rating step
            emn=(-0.178, -0.078),# -slope effort mult
            sf =( 1.014,  1.6))  # scale-factor weight
@@ -176,8 +188,9 @@ def sample(proj):
 
 def effort(z, kloc):
   "COCOMO-II: a * KLOC^(b + .01*sum SF) * prod EM."
-  a = uniform(*EFFORT.a)
-  b = uniform(*EFFORT.b)
+  lo, hi = EFFORT.a
+  a = uniform(lo, hi)
+  b = EFFORT.bhi + (EFFORT.blo-EFFORT.bhi) * (a-lo)/(hi-lo)  # b depends on a
   prod, ssum = 1.0, 0.0
   for n, kind in KIND.items():
     if   kind == "emp": prod *= 1 + (z[n]-3) * uniform(*EFFORT.emp)
@@ -225,8 +238,10 @@ def quart(xs):
 def med(xs): return statistics.median(xs)
 
 def report(the):
-  print(f"# {the.n} samples/study, seed={the.seed}. each cell = p25 p50 p75")
-  print(f"{'study':>7}  {'effort':>23}  {'defects':>20}  {'risk':>17}")
+  print(f"# {the.n} samples/study, seeasd={the.seed}")
+  lmh = lambda w: "%*s %*s %*s" % (w, "p25", w, "p50", w, "p75")
+  print(f"{'':>7}  {'effort':>23}  {'defects':>20}  {'risk':>17}")
+  print(f"{'study':>7}  {lmh(7)}  {lmh(6)}  {lmh(5)}")
   for name in "flight ground osp osp2".split():
     random.seed(the.seed)
     rows = [run(project(CASE[name])) for _ in range(the.n)]
@@ -234,6 +249,27 @@ def report(the):
     d = "%6.0f %6.0f %6.0f" % quart([r.defects for r in rows])
     k = "%5.0f %5.0f %5.0f" % quart([r.risk    for r in rows])
     print(f"{name:>7}  {e}  {d}  {k}")
+
+# ## learn: nuff's min-variance tree over random draws ----------
+def table(proj, n=128):
+  "n random draws as a nuff Data: ratings + kloc -> effort/defects/risk."
+  head = [d.capitalize() for d in KIND] + \
+         ["Kloc", "Effort-", "Defects-", "Risk-"]   # -=minimise goal
+  rows = []
+  for _ in range(n):
+    z, kloc = sample(proj)
+    rows.append([z[d] for d in KIND] + [round(kloc),
+                 round(effort(z, kloc)), round(defects(z, kloc)),
+                 round(risk(z))])
+  return Data([head] + rows)
+
+def coachReport(the):
+  "Learn a min-variance tree (nuff) over -n random draws of a project."
+  random.seed(the.seed)
+  data = table(project(CASE[the.project]), the.n)
+  print(f"# {the.project}: nuff tree over {the.n} random draws. leaf disty"
+        " blends effort/defects/risk (lower=better); +best -worst leaf.")
+  treeShow(data, tree(data, leaf=the.leaf))
 
 # ## checks (run via --checks) ----------------------------------
 def test_positive():
@@ -263,6 +299,11 @@ def test_seed_repeats():
   random.seed(42); b = run(project(CASE["osp"])).effort
   assert a == b
 
+def test_learn_tree():
+  "nuff tree over draws finds at least one split."
+  random.seed(1)
+  assert tree(table(project(CASE["osp"]))).at is not None
+
 # ## lib + cli --------------------------------------------------
 def settings(s):
   "Parse every var=val pair in a string into an o (ints coerced)."
@@ -271,9 +312,23 @@ def settings(s):
 
 def main(the, g):
   argv = sys.argv[1:]
-  for a in argv:
-    if a.startswith("--seed="): the.seed = int(a.split("=")[1])
-    if a.startswith("--n="):    the.n    = int(a.split("=")[1])
+  # accept -n N / --n N / --n=N (int), -p NAME / --project=NAME (str),
+  # or a bare study name (osp, osp2, ...). same flags for seed.
+  ints = {"-n": "n", "--n": "n", "-s": "seed", "--seed": "seed",
+          "-l": "leaf", "--leaf": "leaf"}
+  i = 0
+  while i < len(argv):
+    a = argv[i]
+    if a in CASE: the.project = a
+    elif "=" in a:
+      k, v = a.lstrip("-").split("=")
+      if   k == "project":              the.project = v
+      elif k in ("n", "seed", "leaf"):  setattr(the, k, int(v))
+    elif a in ("-p", "--project") and i+1 < len(argv):
+      the.project = argv[i+1]; i += 1
+    elif a in ints and i+1 < len(argv):
+      setattr(the, ints[a], int(argv[i+1])); i += 1
+    i += 1
   if "-h" in argv or "--help" in argv: return print((__doc__ or "").strip())
   if "--checks" in argv:
     tests = {k: v for k, v in g.items() if k.startswith("test_")}
@@ -282,6 +337,7 @@ def main(the, g):
       try: fn(); ok += 1; print("PASS", name)
       except Exception as e: print("FAIL", name, e)
     return print(f"# {ok}/{len(tests)} ok")
+  if "--learn" in argv: return coachReport(the)
   report(the)
 
 the = settings(__doc__)
