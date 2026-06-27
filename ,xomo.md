@@ -20,7 +20,7 @@ python3 -B xomo.py --checks    # self-tests
 
 **Sections:** [NAME](#name) | [SYNOPSIS](#synopsis) | [OPTIONS](#options) | [DATA](#data) | [TESTS](#tests) | [OUTPUT](#output) | [LEARN](#learn) | [CALIBRATION](#calibration) | [SEE ALSO](#see-also) | [LICENSE](#license) | [AUTHOR](#author)
 
-**Files:** [xomo.py](#file-xomo-py) | [Makefile](#file-makefile) | [pyproject.toml](#file-pyproject-toml)
+**Files:** [xomo.py](http://tiny.cc/xomo#file-xomo-py) | [Makefile](http://tiny.cc/xomo#file-makefile) | [pyproject.toml](http://tiny.cc/xomo#file-pyproject-toml)
 
 ## NAME
 
