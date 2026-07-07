@@ -33,7 +33,8 @@ try:                          # nuff = shared learner lib (pip install nuff)
 except ImportError:           # else the sibling gist under $DOOT (gists root)
   sys.path.append(os.path.join(os.environ.get("DOOT") or
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "nuff"))
-  from nuff import Data, tree, treeShow
+  try: from nuff import Data, tree, treeShow
+  except ImportError: Data = tree = treeShow = None  # only --learn needs nuff
 
 # ===== POLICY: business knowledge -- tweak freely ==============
 
@@ -258,13 +259,14 @@ def table(proj, n=128):
   rows = []
   for _ in range(n):
     z, kloc = sample(proj)
-    rows.append([z[d] for d in KIND] + [round(kloc),
+    rows.append(tuple([z[d] for d in KIND] + [round(kloc),
                  round(effort(z, kloc)), round(defects(z, kloc)),
-                 round(risk(z))])
+                 round(risk(z))]))   # tuple: nuff keys row caches
   return Data([head] + rows)
 
 def coachReport(the):
   "Learn a min-variance tree (nuff) over -n random draws of a project."
+  if not Data: sys.exit("xomo: --learn needs nuff (see INSTALL in -h)")
   random.seed(the.seed)
   data = table(project(CASE[the.project]), the.n)
   print(f"# {the.project}: nuff tree over {the.n} random draws. leaf disty"
@@ -300,7 +302,8 @@ def test_seed_repeats():
   assert a == b
 
 def test_learn_tree():
-  "nuff tree over draws finds at least one split."
+  "nuff tree over draws finds at least one split (skip sans nuff)."
+  if not Data: return
   random.seed(1)
   assert tree(table(project(CASE["osp"]))).at is not None
 
