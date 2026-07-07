@@ -18,7 +18,9 @@ DEMO: ## test: medians for all 4 case studies print
 	@python3 -B xomo.py | grep -q osp2 && echo "ok demo"
 
 CHECKS: ## test: model self-checks pass
-	@python3 -B xomo.py --checks | grep -q "4/4 ok" && echo "ok checks"
+	@python3 -B xomo.py --checks | \
+	  gawk -F'[ /]' '$$2==$$3 && $$3>0 && $$4=="ok"{f=1} END{exit !f}' \
+	  && echo "ok checks"
 
 test: ## run every UPPERCASE rule
 	@gawk -F: '/^[A-Z][A-Z_]*:[^=]/ {print $$1}' $(MAKEFILE_LIST) | \
